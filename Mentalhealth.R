@@ -1,135 +1,187 @@
+
+# ==========================================
+# SCREEN TIME DATA ANALYSIS
+# ==========================================
+
+# 1. Load packages
+library(readr)
 library(dplyr)
 library(ggplot2)
-data <- read.csv("screensandmentalhealth.csv")
-summary(data)
 
-head(data)
-summary(data)
-colSums(is.na(data))
-data<- data%>%
-  distinct()
-ggplot(data,aes (x=variable)) +
-  geom_histogram() 
+# 2. Load dataset
+screensandmentalhealth <- read_csv(
+  "screensandmentalhealth.csv",
+  show_col_types = FALSE
+)
 
+# 3. Examine dataset
+View(screensandmentalhealth)
 
-# analysis.R  -- Screen time vs. mental health (children 0-17)
-# Data Lead: clean the data, explore it, and make the final graphs here.
-# Run the whole script with Ctrl+Shift+Enter (or the "Source" button).
+print(dim(screensandmentalhealth))
+print(names(screensandmentalhealth))
+summary(screensandmentalhealth)
 
-library(tidyverse)   # loads dplyr, ggplot2, readr
+# 4. Check for missing values
+missing_values <- colSums(is.na(screensandmentalhealth))
+print(missing_values)
 
-# ---- 1. LOAD ---------------------------------------------------------------
-data <- read_csv("data.csv")
+# 5. Create graphs folder
+if (!dir.exists("graphs")) {
+  dir.create("graphs")
+}
 
-# First look at the data (run these one at a time in the Console)
-glimpse(data)          # columns and types
-nrow(data)             # 41,890 rows: each row is ONE child
-colSums(is.na(data))   # missing values per column
-summary(data)
+# ==========================================
+# GRAPH 1: DAILY SCREEN TIME DISTRIBUTION
+# ==========================================
 
-# ---- 2. CLEAN --------------------------------------------------------------
-# Give the columns short names without spaces or parentheses
-data <- data %>%
-  rename(Treatment   = `Mental Health Treatment`,
-         NotReceived = `Treatment Not Received`,
-         Age         = `Age (Years)`)
+graph1 <- ggplot(
+  screensandmentalhealth,
+  aes(x = daily_screen_time_hours)
+) +
+  geom_histogram(
+    bins = 20,
+    fill = "steelblue",
+    color = "white"
+  ) +
+  labs(
+    title = "Daily Screen Time Distribution",
+    x = "Daily Screen Time (Hours)",
+    y = "Number of People"
+  ) +
+  theme_minimal()
 
-# Turn text columns into factors with a sensible ORDER (otherwise R sorts
-# the screen time bars alphabetically: "1 hour", "2 hours", "4 or more", "Less than 1"...)
-data <- data %>%
-  mutate(
-    Screentime = factor(Screentime,
-                        levels = c("Less than 1 hour", "1 hour", "2 hours",
-                                   "3 hours", "4 or more hours")),
-    Treatment  = factor(Treatment,
-                        levels = c("Does Not Need Treatment", "Needs Treatment")),
-    Sex        = factor(Sex),
-    # TRUE/FALSE version of Treatment: makes percentages easy (mean of TRUE/FALSE = proportion)
-    Needs      = Treatment == "Needs Treatment",
-    # Age groups: the data goes from 0 to 17, so single years are too noisy for some graphs
-    AgeGroup   = cut(Age, breaks = c(-1, 5, 11, 17),
-                     labels = c("0-5", "6-11", "12-17"))
+print(graph1)
+
+ggsave("graphs/graph1_screen_time.png",
+       graph1, width = 8, height = 5)
+
+# ==========================================
+# GRAPH 2: SCREEN TIME BY GENDER
+# ==========================================
+
+graph2 <- ggplot(
+  screensandmentalhealth,
+  aes(x = gender, y = daily_screen_time_hours, fill = gender)
+) +
+  geom_boxplot() +
+  labs(
+    title = "Daily Screen Time by Gender",
+    x = "Gender",
+    y = "Daily Screen Time (Hours)"
+  ) +
+  theme_minimal()
+
+print(graph2)
+
+ggsave("graphs/graph2_gender.png",
+       graph2, width = 8, height = 5)
+
+# ==========================================
+# GRAPH 3: SCREEN TIME BY AGE
+# ==========================================
+
+graph3 <- ggplot(
+  screensandmentalhealth,
+  aes(x = age, y = daily_screen_time_hours)
+) +
+  geom_point(alpha = 0.5, color = "darkgreen") +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+    title = "Relationship Between Age and Screen Time",
+    x = "Age (Years)",
+    y = "Daily Screen Time (Hours)"
+  ) +
+  theme_minimal()
+
+print(graph3)
+
+ggsave("graphs/graph3_age.png",
+       graph3, width = 8, height = 5)
+
+# ==========================================
+# GRAPH 4: SCREEN TIME BY DEVICE
+# ==========================================
+
+device_data <- screensandmentalhealth %>%
+  summarise(
+    Phone = mean(phone_usage_hours, na.rm = TRUE),
+    Laptop = mean(laptop_usage_hours, na.rm = TRUE),
+    Tablet = mean(tablet_usage_hours, na.rm = TRUE),
+    Television = mean(tv_usage_hours, na.rm = TRUE),
+    Social_Media = mean(social_media_hours, na.rm = TRUE),
+    Work_Related = mean(work_related_hours, na.rm = TRUE)
+  ) %>%
+  tidyr::pivot_longer(
+    cols = everything(),
+    names_to = "Device_or_Activity",
+    values_to = "Average_Hours"
   )
 
-# NotReceived is empty (NA) for about 97% of rows. That is NOT an error:
-# it is only filled in for a small group of kids. We do not use it in the graphs
-# (see README for the question to ask your teacher).
-sum(is.na(data$NotReceived))
-
-# ---- 3. EXPLORE ------------------------------------------------------------
-table(data$Screentime)
-prop.table(table(data$Screentime, data$Treatment), margin = 1)   # row percentages
-
-data %>% group_by(Screentime) %>% summarise(Pct_Needs = mean(Needs) * 100)
-data %>% group_by(AgeGroup)   %>% summarise(Pct_Needs = mean(Needs) * 100)
-data %>% group_by(Sex)        %>% summarise(Pct_Needs = mean(Needs) * 100)
-
-# ---- 4. GRAPHS -------------------------------------------------------------
-
-# Graph 1 (Question 1): How many children are in each screen time group?
-g1 <- data %>%
-  count(Screentime) %>%
-  ggplot(aes(x = Screentime, y = n)) +
-  geom_col(fill = "steelblue") +
-  labs(title = "Number of Children by Daily Screen Time",
-       x = "Daily screen time", y = "Number of children") +
+graph4 <- ggplot(
+  device_data,
+  aes(x = reorder(Device_or_Activity, Average_Hours),
+      y = Average_Hours)
+) +
+  geom_col(fill = "coral") +
+  coord_flip() +
+  labs(
+    title = "Average Daily Hours by Device or Activity",
+    x = "Device or Activity",
+    y = "Average Hours"
+  ) +
   theme_minimal()
-g1
-ggsave("graph1_screentime_counts.png", g1, width = 7, height = 5)
 
-# Graph 2 (Question 2): Does the share needing treatment rise with screen time?
-g2 <- data %>%
-  group_by(Screentime) %>%
-  summarise(Pct_Needs = mean(Needs) * 100) %>%
-  ggplot(aes(x = Screentime, y = Pct_Needs)) +
-  geom_col(fill = "tomato") +
-  geom_text(aes(label = paste0(round(Pct_Needs, 1), "%")), vjust = -0.5) +
-  labs(title = "Percent of Children Needing Mental Health Treatment",
-       x = "Daily screen time", y = "% needing treatment") +
+print(graph4)
+
+ggsave("graphs/graph4_device_usage.png",
+       graph4, width = 8, height = 5)
+
+# ==========================================
+# GRAPH 5: SOCIAL MEDIA AND TOTAL SCREEN TIME
+# ==========================================
+
+graph5 <- ggplot(
+  screensandmentalhealth,
+  aes(
+    x = daily_screen_time_hours,
+    y = social_media_hours
+  )
+) +
+  geom_point(alpha = 0.5, color = "purple") +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+    title = "Social Media Use and Daily Screen Time",
+    x = "Daily Screen Time (Hours)",
+    y = "Social Media Hours"
+  ) +
   theme_minimal()
-g2
-ggsave("graph2_pct_needs_by_screentime.png", g2, width = 7, height = 5)
 
-# Graph 3 (Question 3): Is the pattern still there inside each age group?
-# (Older kids have more screen time AND more need, so age could be hiding the real story.)
-g3 <- data %>%
-  group_by(AgeGroup, Screentime) %>%
-  summarise(Pct_Needs = mean(Needs) * 100, .groups = "drop") %>%
-  ggplot(aes(x = Screentime, y = Pct_Needs, color = AgeGroup, group = AgeGroup)) +
-  geom_line(linewidth = 1) +
-  geom_point(size = 2) +
-  labs(title = "Need for Treatment by Screen Time, Within Each Age Group",
-       x = "Daily screen time", y = "% needing treatment", color = "Age group") +
-  theme_minimal()
-g3
-ggsave("graph3_age_groups.png", g3, width = 7, height = 5)
+print(graph5)
 
-# Graph 4 (Question 4): How does need change with age, and do boys and girls differ?
-g4 <- data %>%
-  group_by(Age, Sex) %>%
-  summarise(Pct_Needs = mean(Needs) * 100, .groups = "drop") %>%
-  ggplot(aes(x = Age, y = Pct_Needs, color = Sex)) +
-  geom_line(linewidth = 1) +
-  geom_point() +
-  labs(title = "Need for Treatment by Age and Sex",
-       x = "Age (years)", y = "% needing treatment") +
-  theme_minimal()
-g4
-ggsave("graph4_age_sex.png", g4, width = 7, height = 5)
+ggsave("graphs/graph5_social_media.png",
+       graph5, width = 8, height = 5)
 
-data <- read.csv("data.csv", check.names = FALSE)
-getwd()
-list.files()
+# ==========================================
+# 6. SUMMARY STATISTICS
+# ==========================================
 
+print(
+  screensandmentalhealth %>%
+    summarise(
+      Average_Age = mean(age, na.rm = TRUE),
+      Average_Screen_Time =
+        mean(daily_screen_time_hours, na.rm = TRUE),
+      Average_Phone_Use =
+        mean(phone_usage_hours, na.rm = TRUE),
+      Average_Social_Media =
+        mean(social_media_hours, na.rm = TRUE)
+    )
+)
 
-head(data)
-names(data) 
-data <- read_csv("screenandmentalhealth.csv")
-data <- read_csv("data.csv")
+# ==========================================
+# 7. SAVE SUMMARY DATA
+# ==========================================
 
-library(dplyr)
-library(ggplot2)
+write_csv(device_data, "device_usage_summary.csv")
 
-data <- read.csv("screenandmentalhealth.csv", check.names = FALSE)
-names(data)
-nrow(data)
+cat("Analysis complete! Check the graphs folder.\n")
