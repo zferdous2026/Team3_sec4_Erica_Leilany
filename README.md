@@ -46,6 +46,6 @@ The graphs are saved in the `graphs` folder.
 Leilany Calderon and Ericka Aliaga 
 
 ## AI and LLM Use
-ChatGPT was used as an AI assistance tool for help with debugging and organizing some of the dataset. Team members reviewed everything. 
+ChatGPT was used as an AI assistance tool for help with debugging and organizing some of the dataset. It was also useful for creating a template for the shiny app. Team members reviewed everything. 
 ## Limitations
 This project explores patterns and associations in the data. The results do not establish that screen time causes mental-health outcomes.
