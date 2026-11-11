@@ -1,190 +1,275 @@
 
 # ==========================================
-# SCREEN TIME AND DEVICE USE SHINY APP
+# SCREEN TIME AND MENTAL HEALTH SHINY APP
 # ==========================================
 
 library(shiny)
 library(readr)
 library(dplyr)
 library(ggplot2)
-<<<<<<< HEAD
 
-# ---- DATA (same cleaning as analysis.R) ----
-file_name <- ifelse(file.exists("mentalhealth.cvs"), "data.csv", "mentalhealth.csv")
-data <- read.csv(file_name, stringsAsFactors = FALSE, na.strings = c("", "NA"))
+# ==========================================
+# DATA
+# ==========================================
 
-names(data)[grepl("^Screentime", names(data))] <- "Screentime"
-names(data)[grepl("^Mental", names(data))]     <- "Treatment"
-names(data)[grepl("^Age", names(data))]        <- "Age"
-names(data)[grepl("^Sex", names(data))]        <- "Sex"
-
-screen_levels <- c("Less than 1 hour", "1 hour", "2 hours", "3 hours", "4 or more hours")
-
-data <- data %>%
-  select(Screentime, Treatment, Age, Sex) %>%
-  mutate(
-    Screentime      = factor(Screentime, levels = screen_levels),
-    Sex             = factor(Sex),
-    Needs_Treatment = Treatment == "Needs Treatment"
-  )
-
-# ---- UI ----
-ui <- navbarPage(
-  "Screen Time and Mental Health in Children",
-  
-  tabPanel("About",
-           h3("Project question"),
-           p("Is the amount of daily screen time related to whether a child needs mental health treatment?"),
-           h3("About the data"),
-           p("The dataset has children aged 0 to 17. For each child it records daily screen time,
-       whether the child needs mental health treatment, age, and sex."),
-           p(strong("Note:"), "This data shows associations, not causes."),
-           h3("Team"),
-           p("Add your team members' names here.")
-  ),
-  
-  tabPanel("Screen Time",
-           h3("How Much Screen Time Do Children Get?"),
-           p("This bar chart counts the children in each daily screen time category."),
-           plotOutput("graph1")
-  ),
-  
-  tabPanel("Treatment by Screen Time",
-           h3("Does More Screen Time Go With More Need for Treatment?"),
-           p("This chart shows the percent of children in each screen time category who need
-       mental health treatment."),
-           plotOutput("graph2")
-  ),
-  
-  tabPanel("Treatment by Age",
-           h3("How Does Need for Treatment Change With Age?"),
-           p("This line chart shows the percent of children at each age who need treatment."),
-           plotOutput("graph3")
-  ),
-  
-  tabPanel("Boys vs. Girls",
-           h3("Is the Pattern Different for Boys and Girls?"),
-           p("This chart compares boys and girls within each screen time category."),
-           plotOutput("graph4")
-  ),
-  
-  tabPanel("Screen Time by Age",
-           h3("How Does Screen Time Change as Children Get Older?"),
-           p("This line chart shows, for each age, the percent of children in each screen time category."),
-           plotOutput("graph5")
-  ),
-  
-  tabPanel("Data",
-           h3("The Dataset (first 20 rows)"),
-           tableOutput("data_table")
-  )
-)
-
-# ---- SERVER ----
-server <- function(input, output) {
-  
-  output$graph1 <- renderPlot({
-    data %>%
-      count(Screentime) %>%
-      ggplot(aes(x = Screentime, y = n)) +
-      geom_col(fill = "steelblue") +
-      labs(x = "Daily screen time", y = "Number of children") +
-=======
-library(tidyr)
-
-# Load data
-screensandmentalhealth <- read_csv(
-  "screensandmentalhealth.csv",
+# Load the dataset used for this project
+data <- read_csv(
+  "screentimementalhealth.csv",
   show_col_types = FALSE
 )
 
-# Prepare device summary
-device_data <- screensandmentalhealth %>%
-  summarise(
-    Phone = mean(phone_usage_hours, na.rm = TRUE),
-    Laptop = mean(laptop_usage_hours, na.rm = TRUE),
-    Tablet = mean(tablet_usage_hours, na.rm = TRUE),
-    Television = mean(tv_usage_hours, na.rm = TRUE),
-    Social_Media = mean(social_media_hours, na.rm = TRUE),
-    Work_Related = mean(work_related_hours, na.rm = TRUE)
+# Clean column values
+data <- data %>%
+  mutate(
+    across(
+      where(is.character),
+      ~ trimws(.x)
+    )
   ) %>%
-  pivot_longer(
-    cols = everything(),
-    names_to = "Device_or_Activity",
-    values_to = "Average_Hours"
+  filter(
+    !if_all(everything(), is.na)
+  ) %>%
+  mutate(
+    `Age (Years)` = parse_number(as.character(`Age (Years)`)),
+    Screentime = factor(
+      Screentime,
+      levels = c(
+        "Less than 1 hour",
+        "1 hour",
+        "2 hours",
+        "3 hours",
+        "4 or more hours"
+      )
+    )
   )
+
+# Create age groups for Graph 6
+data <- data %>%
+  mutate(
+    Age_Group = case_when(
+      `Age (Years)` >= 0 & `Age (Years)` <= 5 ~ "Preschool",
+      `Age (Years)` >= 6 & `Age (Years)` <= 10 ~ "Young Children",
+      `Age (Years)` >= 11 & `Age (Years)` <= 13 ~ "Older Children",
+      `Age (Years)` >= 14 & `Age (Years)` <= 17 ~ "Adolescents",
+      TRUE ~ NA_character_
+    ),
+    Age_Group = factor(
+      Age_Group,
+      levels = c(
+        "Preschool",
+        "Young Children",
+        "Older Children",
+        "Adolescents"
+      )
+    )
+  )
+
+# ==========================================
+# GRAPH THEME
+# ==========================================
+
+app_theme <- function() {
+  theme_minimal(base_size = 14) +
+    theme(
+      plot.title = element_text(
+        face = "bold",
+        size = 17,
+        color = "#403653"
+      ),
+      plot.subtitle = element_text(
+        color = "#77717F",
+        size = 11
+      ),
+      axis.title = element_text(
+        face = "bold",
+        color = "#514A5C"
+      ),
+      axis.text = element_text(
+        color = "#625C6B"
+      ),
+      panel.grid.minor = element_blank(),
+      panel.grid.major = element_line(
+        color = "#EAE6EF"
+      ),
+      legend.title = element_text(
+        face = "bold"
+      ),
+      legend.position = "bottom",
+      plot.margin = margin(15, 15, 15, 15)
+    )
+}
 
 # ==========================================
 # USER INTERFACE
 # ==========================================
 
 ui <- navbarPage(
-  title = "Screen Time and Device Use",
+  title = "Screen Time & Mental Health",
+  
+  header = tags$head(
+    tags$style(HTML("
+      body {
+        background-color: #F8F7FA;
+        font-family: Arial, sans-serif;
+      }
+
+      .navbar {
+        background-color: white;
+        border-bottom: 1px solid #E8E3ED;
+      }
+
+      .navbar-default .navbar-brand {
+        color: #514466;
+        font-weight: bold;
+      }
+
+      .navbar-default .navbar-nav > li > a {
+        color: #625C6B;
+      }
+
+      .navbar-default .navbar-nav > .active > a {
+        background-color: #EAE4F2;
+        color: #514466;
+      }
+
+      .tab-content {
+        padding: 25px;
+      }
+
+      h2, h3 {
+        color: #514466;
+        font-weight: bold;
+      }
+
+      .panel {
+        background-color: white;
+        border: 1px solid #EAE6EF;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      }
+
+      p {
+        color: #625C6B;
+        line-height: 1.6;
+      }
+
+      .hero {
+        background: linear-gradient(
+          120deg,
+          #EAE4F2,
+          #E4F1EC
+        );
+        padding: 30px;
+        border-radius: 14px;
+        margin-bottom: 25px;
+      }
+
+      table {
+        background-color: white;
+      }
+    "))
+  ),
   
   # ABOUT TAB
   tabPanel(
     "About",
-    h2("Screen Time and Device Use"),
-    p("Research question: How do age and gender relate to daily screen time and patterns of device use?"),
-    p("This project examines screen time, device use, social media activity, age, and gender."),
-    p("Dataset: screensandmentalhealth.csv"),
-    p("Team members: Add all team members' names here.")
+    div(
+      class = "hero",
+      h2("Screen Time and Mental Health in Children"),
+      p(
+        "This project examines the relationship between children's daily screen time and mental health treatment."
+      )
+    ),
+    
+    div(
+      class = "panel",
+      h3("Project Question"),
+      p(
+        "Is the amount of daily screen time related to whether a child needs mental health treatment?"
+      ),
+      
+      h3("About the Data"),
+      p(
+        "The dataset includes children aged 0 to 17. It records daily screen time, mental health treatment, age, and sex."
+      ),
+      
+      p(
+        strong("Note: "),
+        "This data shows associations, not causes."
+      ),
+      
+      h3("Team"),
+      p("Add your team members' names here.")
+    )
   ),
   
   # GRAPH 1
   tabPanel(
     "Screen Time",
-    h3("Daily Screen Time Distribution"),
-    p("This histogram shows how daily screen time is distributed among participants."),
-    plotOutput("graph1")
+    h3("How Much Screen Time Do Children Get?"),
+    p(
+      "This chart shows the number of children in each daily screen time category."
+    ),
+    div(class = "panel", plotOutput("graph1"))
   ),
   
   # GRAPH 2
   tabPanel(
-    "Gender",
-    h3("Daily Screen Time by Gender"),
-    p("This box plot compares daily screen time across gender categories."),
-    plotOutput("graph2")
+    "Treatment by Screen Time",
+    h3("Mental Health Treatment by Screen Time"),
+    p(
+      "This chart compares mental health treatment across daily screen time categories."
+    ),
+    div(class = "panel", plotOutput("graph2"))
   ),
   
   # GRAPH 3
   tabPanel(
-    "Age",
-    h3("Age and Screen Time"),
-    p("This scatter plot examines the relationship between participant age and daily screen time."),
-    plotOutput("graph3")
+    "Treatment Not Received",
+    h3("Treatment Not Received by Screen Time"),
+    p(
+      "This chart shows the distribution of children who did not receive needed mental health treatment across screen time categories."
+    ),
+    div(class = "panel", plotOutput("graph3"))
   ),
   
   # GRAPH 4
   tabPanel(
-    "Device Use",
-    h3("Average Hours by Device or Activity"),
-    p("This bar chart compares average daily hours reported for different devices and activities."),
-    plotOutput("graph4")
+    "Age Distribution",
+    h3("Age Distribution by Screen Time"),
+    p(
+      "This boxplot compares children's ages across daily screen time categories."
+    ),
+    div(class = "panel", plotOutput("graph4"))
   ),
   
   # GRAPH 5
   tabPanel(
-    "Social Media",
-    h3("Social Media and Screen Time"),
-    p("This scatter plot compares social media hours with total daily screen time."),
-    plotOutput("graph5")
+    "Screen Time by Sex",
+    h3("Screen Time Patterns by Sex"),
+    p(
+      "This chart compares screen time categories across sex groups."
+    ),
+    div(class = "panel", plotOutput("graph5"))
   ),
   
   # GRAPH 6
   tabPanel(
-    "Phone Use",
-    h3("Phone Usage by Gender"),
-    p("This box plot compares daily phone usage across gender categories."),
-    plotOutput("graph6")
+    "Treatment by Age Group",
+    h3("Mental Health Treatment Across Age Groups"),
+    p(
+      "This chart compares mental health treatment across different childhood and adolescent age groups."
+    ),
+    div(class = "panel", plotOutput("graph6"))
   ),
   
   # DATA TAB
   tabPanel(
     "Data",
     h3("Dataset Preview"),
-    p("The table below displays the first 20 rows of the dataset."),
-    tableOutput("data_table")
+    p("The table below displays the first 20 rows of the cleaned dataset."),
+    div(class = "panel", tableOutput("data_table"))
   )
 )
 
@@ -194,161 +279,168 @@ ui <- navbarPage(
 
 server <- function(input, output) {
   
+  # GRAPH 1: Screen Time Distribution
   output$graph1 <- renderPlot({
-    ggplot(
-      screensandmentalhealth,
-      aes(x = daily_screen_time_hours)
-    ) +
-      geom_histogram(
-        bins = 20,
-        fill = "steelblue",
-        color = "white"
-      ) +
+    data %>%
+      filter(!is.na(Screentime)) %>%
+      count(Screentime) %>%
+      ggplot(aes(x = Screentime, y = n)) +
+      geom_col(fill = "#B9A4D6", width = 0.7) +
       labs(
-        title = "Daily Screen Time Distribution",
-        x = "Daily Screen Time (Hours)",
-        y = "Number of People"
+        title = "Children's Weekday Screen Time",
+        x = "Daily Screen Time",
+        y = "Number of Children"
       ) +
->>>>>>> 58065ba2e4e8651b5b87486a7bb59cd66c2bbbdd
-      theme_minimal()
+      app_theme()
   })
   
+  # GRAPH 2: Treatment by Screen Time
   output$graph2 <- renderPlot({
-<<<<<<< HEAD
     data %>%
-      group_by(Screentime) %>%
-      summarise(Pct = mean(Needs_Treatment) * 100) %>%
-      ggplot(aes(x = Screentime, y = Pct)) +
-      geom_col(fill = "steelblue") +
-      geom_text(aes(label = paste0(round(Pct, 1), "%")), vjust = -0.4) +
-      labs(x = "Daily screen time", y = "% needing treatment") +
-=======
-    ggplot(
-      screensandmentalhealth,
-      aes(
-        x = gender,
-        y = daily_screen_time_hours,
-        fill = gender
-      )
-    ) +
-      geom_boxplot() +
-      labs(
-        title = "Daily Screen Time by Gender",
-        x = "Gender",
-        y = "Daily Screen Time (Hours)"
+      filter(
+        !is.na(Screentime),
+        !is.na(`Mental Health Treatment`)
+      ) %>%
+      ggplot(
+        aes(
+          x = Screentime,
+          fill = `Mental Health Treatment`
+        )
       ) +
->>>>>>> 58065ba2e4e8651b5b87486a7bb59cd66c2bbbdd
-      theme_minimal()
+      geom_bar(position = "fill") +
+      scale_y_continuous(
+        labels = scales::percent
+      ) +
+      scale_fill_brewer(palette = "Set2") +
+      labs(
+        title = "Mental Health Treatment by Screen Time",
+        x = "Daily Screen Time",
+        y = "Percentage of Children",
+        fill = "Mental Health Treatment"
+      ) +
+      app_theme()
   })
   
+  # GRAPH 3: Treatment Not Received
   output$graph3 <- renderPlot({
-<<<<<<< HEAD
     data %>%
-      group_by(Age) %>%
-      summarise(Pct = mean(Needs_Treatment) * 100) %>%
-      ggplot(aes(x = Age, y = Pct)) +
-      geom_line(color = "steelblue", linewidth = 1) +
-      geom_point(color = "steelblue", size = 2) +
-      labs(x = "Age (years)", y = "% needing treatment") +
-=======
-    ggplot(
-      screensandmentalhealth,
-      aes(
-        x = age,
-        y = daily_screen_time_hours
-      )
-    ) +
-      geom_point(alpha = 0.5, color = "darkgreen") +
-      geom_smooth(method = "lm", se = TRUE) +
-      labs(
-        title = "Age and Daily Screen Time",
-        x = "Age (Years)",
-        y = "Daily Screen Time (Hours)"
+      filter(
+        !is.na(Screentime),
+        !is.na(`Treatment Not Received`)
+      ) %>%
+      ggplot(
+        aes(
+          x = Screentime,
+          fill = `Treatment Not Received`
+        )
       ) +
->>>>>>> 58065ba2e4e8651b5b87486a7bb59cd66c2bbbdd
-      theme_minimal()
+      geom_bar(position = "fill") +
+      scale_y_continuous(
+        labels = scales::percent
+      ) +
+      scale_fill_brewer(palette = "Set2") +
+      labs(
+        title = "Treatment Not Received by Screen Time",
+        x = "Daily Screen Time",
+        y = "Percentage of Children",
+        fill = "Treatment Not Received"
+      ) +
+      app_theme()
   })
   
+  # GRAPH 4: Age Distribution
   output$graph4 <- renderPlot({
-<<<<<<< HEAD
     data %>%
-      group_by(Screentime, Sex) %>%
-      summarise(Pct = mean(Needs_Treatment) * 100, .groups = "drop") %>%
-      ggplot(aes(x = Screentime, y = Pct, fill = Sex)) +
-      geom_col(position = "dodge") +
-      labs(x = "Daily screen time", y = "% needing treatment") +
-=======
-    ggplot(
-      device_data,
-      aes(
-        x = reorder(Device_or_Activity, Average_Hours),
-        y = Average_Hours
-      )
-    ) +
-      geom_col(fill = "coral") +
-      coord_flip() +
-      labs(
-        title = "Average Hours by Device or Activity",
-        x = "Device or Activity",
-        y = "Average Hours"
+      filter(
+        !is.na(Screentime),
+        !is.na(`Age (Years)`)
+      ) %>%
+      ggplot(
+        aes(
+          x = Screentime,
+          y = `Age (Years)`
+        )
       ) +
->>>>>>> 58065ba2e4e8651b5b87486a7bb59cd66c2bbbdd
-      theme_minimal()
+      geom_boxplot(
+        fill = "#A8D8C8",
+        color = "#608F80",
+        alpha = 0.9
+      ) +
+      labs(
+        title = "Age Distribution by Screen Time",
+        x = "Daily Screen Time",
+        y = "Age (Years)"
+      ) +
+      app_theme()
   })
   
+  # GRAPH 5: Screen Time by Sex
   output$graph5 <- renderPlot({
-<<<<<<< HEAD
     data %>%
-      count(Age, Screentime) %>%
-      group_by(Age) %>%
-      mutate(Pct = n / sum(n) * 100) %>%
-      ungroup() %>%
-      ggplot(aes(x = Age, y = Pct, color = Screentime)) +
-      geom_line(linewidth = 1) +
-      labs(x = "Age (years)", y = "% of children at that age", color = "Screen time") +
-=======
-    ggplot(
-      screensandmentalhealth,
-      aes(
-        x = daily_screen_time_hours,
-        y = social_media_hours
-      )
-    ) +
-      geom_point(alpha = 0.5, color = "purple") +
-      geom_smooth(method = "lm", se = TRUE) +
-      labs(
-        title = "Social Media and Daily Screen Time",
-        x = "Daily Screen Time (Hours)",
-        y = "Social Media Hours"
+      filter(
+        !is.na(Screentime),
+        !is.na(Sex)
+      ) %>%
+      ggplot(
+        aes(
+          x = Screentime,
+          fill = Sex
+        )
       ) +
-      theme_minimal()
+      geom_bar(position = "fill") +
+      scale_y_continuous(
+        labels = scales::percent
+      ) +
+      scale_fill_brewer(palette = "Set2") +
+      labs(
+        title = "Screen Time Patterns by Sex",
+        x = "Daily Screen Time",
+        y = "Percentage of Children",
+        fill = "Sex"
+      ) +
+      app_theme()
   })
   
+  # GRAPH 6: Treatment by Age Group
   output$graph6 <- renderPlot({
-    ggplot(
-      screensandmentalhealth,
-      aes(
-        x = gender,
-        y = phone_usage_hours,
-        fill = gender
-      )
-    ) +
-      geom_boxplot() +
-      labs(
-        title = "Phone Usage by Gender",
-        x = "Gender",
-        y = "Daily Phone Usage (Hours)"
+    data %>%
+      filter(
+        !is.na(Age_Group),
+        !is.na(`Mental Health Treatment`)
+      ) %>%
+      ggplot(
+        aes(
+          x = Age_Group,
+          fill = `Mental Health Treatment`
+        )
       ) +
->>>>>>> 58065ba2e4e8651b5b87486a7bb59cd66c2bbbdd
-      theme_minimal()
+      geom_bar(position = "fill") +
+      scale_y_continuous(
+        labels = scales::percent
+      ) +
+      scale_fill_brewer(palette = "Set2") +
+      labs(
+        title = "Mental Health Treatment Across Age Groups",
+        x = "Age Group",
+        y = "Percentage of Children",
+        fill = "Mental Health Treatment"
+      ) +
+      app_theme()
   })
   
+  # DATA TABLE
   output$data_table <- renderTable({
-<<<<<<< HEAD
-    head(data %>% select(Screentime, Treatment, Age, Sex, Needs_Treatment), 20)
-=======
-    head(screensandmentalhealth, 20)
->>>>>>> 58065ba2e4e8651b5b87486a7bb59cd66c2bbbdd
+    head(
+      data %>%
+        select(
+          Screentime,
+          `Mental Health Treatment`,
+          `Treatment Not Received`,
+          `Age (Years)`,
+          Sex
+        ),
+      20
+    )
   })
 }
 
