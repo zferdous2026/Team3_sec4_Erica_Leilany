@@ -43,6 +43,7 @@ data <- data %>%
     )
   )
 
+
 # Create age groups for Graph 6
 data <- data %>%
   mutate(
