@@ -153,3 +153,102 @@ print(dim(screentimementalhealth))
 
 cat("Analysis complete! Six graphs saved in the graphs folder.\n")
 
+
+# --------------------------------
+# DATA CLEANING
+# --------------------------------
+
+library(dplyr)
+library(readr)
+
+# Load original dataset
+screentimementalhealth <- read_csv(
+  "screentimementalhealth.csv",
+  show_col_types = FALSE
+)
+
+# Clean extra spaces from text columns
+screentimementalhealth <- screentimementalhealth %>%
+  mutate(
+    across(where(is.character), trimws)
+  )
+
+# Make sure age is numeric
+screentimementalhealth <- screentimementalhealth %>%
+  mutate(
+    `Age (Years)` = as.numeric(`Age (Years)`)
+  )
+
+# Create age groups
+screentimementalhealth <- screentimementalhealth %>%
+  mutate(
+    Age_Group = case_when(
+      `Age (Years)` >= 0 & `Age (Years)` <= 5 ~ "Preschool (0-5)",
+      `Age (Years)` >= 6 & `Age (Years)` <= 10 ~ "Young Children (6-10)",
+      `Age (Years)` >= 11 & `Age (Years)` <= 13 ~ "Older Children (11-13)",
+      `Age (Years)` >= 14 & `Age (Years)` <= 17 ~ "Adolescents (14-17)",
+      TRUE ~ NA_character_
+    ),
+    Age_Group = factor(
+      Age_Group,
+      levels = c(
+        "Preschool (0-5)",
+        "Young Children (6-10)",
+        "Older Children (11-13)",
+        "Adolescents (14-17)"
+      )
+    )
+  )
+
+# Check missing values after cleaning
+colSums(is.na(screentimementalhealth))
+
+# Check invalid ages
+sum(
+  screentimementalhealth$`Age (Years)` < 0 |
+    screentimementalhealth$`Age (Years)` > 17,
+  na.rm = TRUE
+)
+
+# Check duplicate-looking records (do not automatically remove)
+sum(duplicated(screentimementalhealth))
+
+# Save cleaned dataset as a separate file
+write_csv(
+  screentimementalhealth,
+  "screentimementalhealth_clean.csv"
+)
+dim(screentimementalhealth)
+
+
+# Graph 3: Treatment Not Received by Screen Time
+# Exclude missing responses from this visualization only
+
+graph3_data <- screentimementalhealth %>%
+  filter(!is.na(`Treatment Not Received`))
+
+graph3 <- ggplot(
+  graph3_data,
+  aes(
+    x = Screentime,
+    fill = `Treatment Not Received`
+  )
+) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent) +
+  labs(
+    title = "Mental Health Treatment Not Received",
+    x = "Screen Time",
+    y = "Percentage of Children",
+    fill = "Treatment Not Received"
+  ) +
+  theme_minimal()
+
+print(graph3)
+
+ggsave(
+  "graphs/graph3_treatment_not_received.png",
+  graph3,
+  width = 9,
+  height = 6
+)
