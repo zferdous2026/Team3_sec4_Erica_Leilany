@@ -12,17 +12,7 @@ library(ggplot2)
 library(DT)
 library(scales)
 
-# ============================================================
-# 1. LOAD DATA
-# ============================================================
-
-if (file.exists("screentimementalhealth.csv")) {
-  data_file <- "screentimementalhealth.csv"
-} else if (file.exists("mentalhealth.csv")) {
-  data_file <- "mentalhealth.csv"
-} else {
-  stop("Please put your CSV file in the same folder as app.R.")
-}
+data_file <- "screentimementalhealth.csv"
 
 screentimementalhealth <- read_csv(
   data_file,

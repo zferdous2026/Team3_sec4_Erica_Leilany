@@ -1,8 +1,3 @@
-
-# ==========================================
-# TEAM 3: CHILDREN'S SCREEN TIME AND MENTAL HEALTH
-# ==========================================
-
 # 1. Load packages
 library(readr)
 library(dplyr)
